@@ -24,7 +24,7 @@
     .meta .status{font-size:12px;display:flex;align-items:center;gap:4px;opacity:0.95}
     .status .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px rgba(37,211,102,0.25)}
 
-    .messages{flex:1;min-height:0;padding:16px 14px;background:var(--msg-bg);display:flex;flex-direction:column;gap:14px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+    .messages{flex:1;min-height:0;padding:16px 14px;background:var(--msg-bg);display:flex;flex-direction:column;gap:14px;overflow-y:auto;-webkit-overflow-scrolling:touch; position: relative;}
     .messages::-webkit-scrollbar{display:none} .messages{ -ms-overflow-style:none; scrollbar-width:none }
 
     .bubble{background:var(--bubble);padding:12px;border-radius:10px;max-width:86%;align-self:flex-start;box-shadow:0 2px 4px rgba(0,0,0,0.08);position:relative;word-break:break-word;animation:appear .18s ease;}
@@ -58,16 +58,45 @@
     .bubble video{ width:100%; border-radius:8px; display:block; }
     .timestamp{ font-size:11px; color:var(--muted); margin-top:6px; text-align:right; }
 
-    .loading-bubble{display:flex;align-items:center;gap:4px;height:20px;}
+    .loading-bubble{display:flex;align-items:center;gap:4px;height:20px;opacity:0;animation:appear 0.18s ease 0.5s forwards;}
     .loading-bubble .dot{width:6px;height:6px;border-radius:50%;background:#999;animation:bounce 1.2s infinite;}
     .loading-bubble .dot:nth-child(2){animation-delay:0.2s} .loading-bubble .dot:nth-child(3){animation-delay:0.4s}
     @keyframes bounce{0%,80%,100%{transform:scale(0.6);opacity:0.6}40%{transform:scale(1);opacity:1}}
-
     @keyframes appear{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+    .scroll-down-btn {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: transparent;
+      color: #000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border: none;
+      animation: blink 1s infinite;
+      transition: opacity 0.2s ease;
+      z-index: 10;
+    }
+    .scroll-down-btn.visible { display: flex; }
+    .scroll-down-btn:hover { opacity: 0.8; }
+    .scroll-down-btn:active { transform: translateX(-50%) scale(0.95); }
+    .scroll-down-btn:focus { outline: 2px solid rgba(0,0,0,0.2); outline-offset: 2px; }
+
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0.3; }
+    }
 
     @media (max-width:360px){
       .audio-track{ min-width:clamp(100px, 30vw, 140px); }
       .audio-time{ width:clamp(36px, 10vw, 44px); font-size:11px; }
+      .scroll-down-btn { width: 28px; height: 28px; }
     }
 
     .audio-play-btn:focus{ outline:3px solid rgba(7,94,84,0.15); outline-offset:3px; }
@@ -82,7 +111,13 @@
         <div class="status"><span class="dot" aria-hidden></span><span>online</span></div>
       </div>
     </div>
-    <div class="messages" id="messages" aria-live="polite"></div>
+    <div class="messages" id="messages" aria-live="polite">
+      <button class="scroll-down-btn" aria-label="Rolar para novas mensagens" title="Rolar para novas mensagens">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+          <path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/>
+        </svg>
+      </button>
+    </div>
   </div>
 
   <script>
@@ -90,11 +125,13 @@
       avatar: 'https://i.pravatar.cc/150?img=47',
       audioUrl: 'https://s3-cf.zapsafe.work/gnn/audio3.mp3',
       videoUrl: 'https://s3-cf.zapsafe.work/gnn/45.mp4',
-      delayBeforeAudio: 2000,
-      delayBeforeVideo: 4000
+      delayBeforeAudio: 2000, // 0.5s (aparecer) + 1.5s (duração visível)
+      delayBeforeVideo: 1500, // 0.5s (aparecer) + 1s (duração visível)
+      delayBetweenVideos: 1500 // 0.5s (aparecer) + 1s (duração visível para subsequentes)
     };
 
     const msgs = document.getElementById('messages');
+    const scrollDownBtn = document.querySelector('.scroll-down-btn');
     document.getElementById('avatar').style.backgroundImage = `url(${M.avatar})`;
 
     function fmtTime(){
@@ -113,9 +150,14 @@
       b.className = 'bubble';
       b.innerHTML = html;
       msgs.appendChild(b);
-      msgs.scrollTop = msgs.scrollHeight;
       return b;
     }
+
+    function scrollToBottom() {
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    scrollDownBtn.addEventListener('click', scrollToBottom);
 
     async function run(){
       const placeholderAudio = addBubble(`
@@ -150,8 +192,6 @@
 
       const SVG_PLAY = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>`;
       const SVG_PAUSE = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M6 19h4V5H6zm8-14v14h4V5z"/></svg>`;
-
-      function ensureVisible(){ msgs.scrollTop = msgs.scrollHeight; }
 
       // Play/Pause
       playBtn.addEventListener('click', ()=>{
@@ -199,19 +239,38 @@
         audio.currentTime = (x / rect.width) * audio.duration;
       });
 
-      ensureVisible();
-
-      const placeholderVideo = addBubble(`
+      const placeholderVideo1 = addBubble(`
         <div class="loading-bubble" aria-hidden="true">
           <div class="dot"></div><div class="dot"></div><div class="dot"></div>
         </div>
       `);
 
       await new Promise(r=>setTimeout(r, M.delayBeforeVideo));
-      placeholderVideo.innerHTML = `<video controls preload="metadata" playsinline><source src="${M.videoUrl}"></video><div class="timestamp">${fmtTime()}</div>`;
+      placeholderVideo1.innerHTML = `<video controls preload="metadata" playsinline><source src="${M.videoUrl}"></video><div class="timestamp">${fmtTime()}</div>`;
+
+      // Adicionar três vídeos adicionais
+      for (let i = 0; i < 3; i++) {
+        const placeholderVideo = addBubble(`
+          <div class="loading-bubble" aria-hidden="true">
+            <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        `);
+        await new Promise(r=>setTimeout(r, M.delayBetweenVideos));
+        placeholderVideo.innerHTML = `<video controls preload="metadata" playsinline><source src="${M.videoUrl}"></video><div class="timestamp">${fmtTime()}</div>`;
+      }
     }
 
-    window.addEventListener('load', run);
+    window.addEventListener('load', () => {
+      // Lógica da seta: esperar 2s após load, exibir por 5s
+      setTimeout(() => {
+        scrollDownBtn.classList.add('visible');
+        setTimeout(() => {
+          scrollDownBtn.classList.remove('visible');
+        }, 5000);
+      }, 2000);
+
+      run();
+    });
   </script>
 </body>
 </html>
