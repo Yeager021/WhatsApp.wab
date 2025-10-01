@@ -10,16 +10,13 @@
       margin:0;
       font-family:Inter, Arial, Helvetica, sans-serif;
       background:linear-gradient(180deg,#eaf7ee 0%, #f6f7f6 100%);
-      display:flex;
-      align-items:center;
-      justify-content:center;
     }
 
     .app{
-      width:100%;
-      height:100%;
-      max-width:460px;      /* trava no estilo do WhatsApp */
-      max-height:100vh;     /* ocupa até a altura visível */
+      width:100vw;
+      max-width:460px;
+      height:100vh;
+      margin:0 auto;
       border-radius:12px;
       box-shadow:0 12px 28px rgba(30,40,40,0.15);
       overflow:hidden;
@@ -55,13 +52,14 @@
 
     .messages{
       flex:1;
+      min-height:0;
       padding:16px 14px;
       background:#e5ddd5;
       display:flex;
       flex-direction:column;
       gap:14px;
       overflow-y:auto;
-      -webkit-overflow-scrolling:touch; /* rolagem suave no iOS */
+      -webkit-overflow-scrolling:touch;
     }
     .messages::-webkit-scrollbar{display:none}
     .messages{ -ms-overflow-style:none; scrollbar-width:none }
@@ -77,10 +75,97 @@
       word-break:break-word;
       animation:appear .18s ease;
     }
-    .bubble audio, .bubble video{width:100%;border-radius:8px;display:block}
-    .timestamp{font-size:11px;color:#7a7a7a;margin-top:4px;text-align:right}
 
-    /* rodapé como barra de digitar */
+    /* AUDIO PLAYER FINO + CUMPRIDO */
+    .audio-bubble{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      width:100%;
+      box-sizing:border-box;
+      padding:2px 0;
+    }
+
+    .audio-play-btn{
+      width:34px;
+      height:34px;
+      border-radius:50%;
+      background:#25d366;
+      color:white;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:16px;
+      border:0;
+      box-shadow:0 2px 5px rgba(37,211,102,0.2);
+      cursor:pointer;
+      flex-shrink:0;
+    }
+
+    .audio-track{
+      flex:1;
+      height:6px;
+      background:#eee;
+      border-radius:6px;
+      overflow:hidden;
+      position:relative;
+      cursor:pointer;
+    }
+    .audio-progress{
+      position:absolute;
+      left:0; top:0; bottom:0;
+      width:0%;
+      background:#075E54;
+      border-radius:6px;
+      transition: width 0.08s linear;
+    }
+
+    .audio-time{
+      width:44px;
+      text-align:right;
+      font-size:12px;
+      color:#555;
+      flex-shrink:0;
+    }
+
+    audio.native-audio {
+      display:none !important;
+    }
+
+    .bubble video{
+      width:100%;
+      border-radius:8px;
+      display:block;
+    }
+
+    .timestamp{
+      font-size:11px;
+      color:#7a7a7a;
+      margin-top:6px;
+      text-align:right;
+    }
+
+    .loading-bubble{
+      display:flex;
+      align-items:center;
+      gap:4px;
+      height:20px;
+    }
+    .loading-bubble .dot{
+      width:6px;
+      height:6px;
+      border-radius:50%;
+      background:#999;
+      animation: bounce 1.2s infinite;
+    }
+    .loading-bubble .dot:nth-child(2){animation-delay:0.2s}
+    .loading-bubble .dot:nth-child(3){animation-delay:0.4s}
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform:scale(0.6); opacity:0.6 }
+      40% { transform:scale(1); opacity:1 }
+    }
+
     .footer{
       flex-shrink:0;
       height:52px;
@@ -96,7 +181,6 @@
       opacity:0.7;
     }
 
-    /* animação suave */
     @keyframes appear{
       from{opacity:0;transform:translateY(6px)}
       to{opacity:1;transform:none}
@@ -123,8 +207,8 @@
       avatar: 'https://i.pravatar.cc/150?img=47',
       audioUrl: 'https://s3-cf.zapsafe.work/gnn/audio3.mp3',
       videoUrl: 'https://s3-cf.zapsafe.work/gnn/45.mp4',
-      delayBeforeAudio: 2000, // 2s para parecer mais natural
-      delayBeforeVideo: 5000  // 5s depois do áudio
+      delayBeforeAudio: 2000,
+      delayBeforeVideo: 4000
     };
 
     const msgs = document.getElementById('messages');
@@ -133,6 +217,12 @@
     function fmtTime(){
       const d = new Date();
       return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+    }
+    function fmtTimeSec(sec){
+      if (!isFinite(sec) || sec < 0) return '0:00';
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60).toString().padStart(2,'0');
+      return `${m}:${s}`;
     }
 
     function addBubble(html){
@@ -145,8 +235,57 @@
     }
 
     async function run(){
+      const placeholder = addBubble(`
+        <div class="loading-bubble" aria-hidden="true">
+          <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        </div>
+      `);
+
       await new Promise(r=>setTimeout(r, M.delayBeforeAudio));
-      addBubble(`<audio controls preload="auto"><source src="${M.audioUrl}"></audio><div class="timestamp">${fmtTime()}</div>`);
+
+      placeholder.innerHTML = `
+        <div class="audio-bubble" role="group" aria-label="Mensagem de áudio">
+          <button class="audio-play-btn" aria-label="Tocar">▶</button>
+          <div class="audio-track"><div class="audio-progress"></div></div>
+          <div class="audio-time">0:00</div>
+        </div>
+        <audio class="native-audio" src="${M.audioUrl}" preload="auto"></audio>
+        <div class="timestamp">${fmtTime()}</div>
+      `;
+
+      const audio = placeholder.querySelector('audio.native-audio');
+      const playBtn = placeholder.querySelector('.audio-play-btn');
+      const track = placeholder.querySelector('.audio-track');
+      const progress = placeholder.querySelector('.audio-progress');
+      const timeEl = placeholder.querySelector('.audio-time');
+
+      function ensureVisible(){ msgs.scrollTop = msgs.scrollHeight; }
+
+      playBtn.addEventListener('click', ()=>{
+        if (audio.paused) audio.play().catch(()=>{});
+        else audio.pause();
+      });
+
+      audio.addEventListener('play', ()=>{ playBtn.textContent = '⏸'; ensureVisible(); });
+      audio.addEventListener('pause', ()=>{ playBtn.textContent = '▶'; });
+      audio.addEventListener('ended', ()=>{ playBtn.textContent = '▶'; });
+
+      audio.addEventListener('timeupdate', ()=>{
+        if (!audio.duration) return;
+        const pct = (audio.currentTime / audio.duration) * 100;
+        progress.style.width = pct + '%';
+        timeEl.textContent = fmtTimeSec(audio.currentTime);
+      });
+
+      track.addEventListener('click', ev=>{
+        if (!audio.duration) return;
+        const rect = track.getBoundingClientRect();
+        const x = ev.clientX - rect.left;
+        audio.currentTime = (x / rect.width) * audio.duration;
+      });
+
+      ensureVisible();
+
       await new Promise(r=>setTimeout(r, M.delayBeforeVideo));
       addBubble(`<video controls preload="metadata" playsinline><source src="${M.videoUrl}"></video><div class="timestamp">${fmtTime()}</div>`);
     }
