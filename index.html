@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Chat — Lucía (restauração)</title>
+  <style>
+    html,body{
+      height:100%;
+      margin:0;
+      font-family:Inter, Arial, Helvetica, sans-serif;
+      background:linear-gradient(180deg,#eaf7ee 0%, #f6f7f6 100%);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .app{
+      width:100%;
+      height:100%;
+      max-width:460px;      /* trava no estilo do WhatsApp */
+      max-height:100vh;     /* ocupa até a altura visível */
+      border-radius:12px;
+      box-shadow:0 12px 28px rgba(30,40,40,0.15);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      background:linear-gradient(180deg,#f3efec 0%, #efe8e3 100%);
+    }
+
+    /* cabeçalho verde estilo WhatsApp */
+    .header{
+      flex-shrink:0;
+      height:56px;
+      padding:8px 12px;
+      background:#075E54;
+      color:#fff;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .avatar{
+      width:40px;
+      height:40px;
+      border-radius:50%;
+      background-size:cover;
+      background-position:center;
+      border:2px solid rgba(255,255,255,0.15);
+      flex-shrink:0;
+    }
+    .meta{display:flex;flex-direction:column;min-width:0}
+    .meta strong{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .meta .status{font-size:12px;display:flex;align-items:center;gap:4px;opacity:0.95}
+    .status .dot{width:7px;height:7px;border-radius:50%;background:#25d366;box-shadow:0 0 6px rgba(37,211,102,0.25)}
+
+    .messages{
+      flex:1;
+      padding:16px 14px;
+      background:#e5ddd5;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+      overflow-y:auto;
+      -webkit-overflow-scrolling:touch; /* rolagem suave no iOS */
+    }
+    .messages::-webkit-scrollbar{display:none}
+    .messages{ -ms-overflow-style:none; scrollbar-width:none }
+
+    .bubble{
+      background:#fff;
+      padding:12px;
+      border-radius:10px;
+      max-width:80%;
+      align-self:flex-start;
+      box-shadow:0 2px 4px rgba(0,0,0,0.08);
+      position:relative;
+      word-break:break-word;
+      animation:appear .18s ease;
+    }
+    .bubble audio, .bubble video{width:100%;border-radius:8px;display:block}
+    .timestamp{font-size:11px;color:#7a7a7a;margin-top:4px;text-align:right}
+
+    /* rodapé como barra de digitar */
+    .footer{
+      flex-shrink:0;
+      height:52px;
+      background:#f0f0f0;
+      display:flex;
+      align-items:center;
+      padding:0 12px;
+      font-size:14px;
+      color:#7d7d7d;
+    }
+    .footer::before{
+      content:"Digitar mensagem";
+      opacity:0.7;
+    }
+
+    /* animação suave */
+    @keyframes appear{
+      from{opacity:0;transform:translateY(6px)}
+      to{opacity:1;transform:none}
+    }
+  </style>
+</head>
+<body>
+  <div class="app" role="application">
+    <div class="header">
+      <div id="avatar" class="avatar" style="background-image:url('https://i.pravatar.cc/150?img=47')"></div>
+      <div class="meta">
+        <strong id="chatName">Lucía</strong>
+        <div class="status"><span class="dot" aria-hidden></span><span>online</span></div>
+      </div>
+    </div>
+
+    <div class="messages" id="messages" aria-live="polite"></div>
+
+    <div class="footer"></div>
+  </div>
+
+  <script>
+    const M = {
+      avatar: 'https://i.pravatar.cc/150?img=47',
+      audioUrl: 'https://s3-cf.zapsafe.work/gnn/audio3.mp3',
+      videoUrl: 'https://s3-cf.zapsafe.work/gnn/45.mp4',
+      delayBeforeAudio: 2000, // 2s para parecer mais natural
+      delayBeforeVideo: 5000  // 5s depois do áudio
+    };
+
+    const msgs = document.getElementById('messages');
+    document.getElementById('avatar').style.backgroundImage = `url(${M.avatar})`;
+
+    function fmtTime(){
+      const d = new Date();
+      return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+    }
+
+    function addBubble(html){
+      const b = document.createElement('div');
+      b.className = 'bubble';
+      b.innerHTML = html;
+      msgs.appendChild(b);
+      msgs.scrollTop = msgs.scrollHeight;
+      return b;
+    }
+
+    async function run(){
+      await new Promise(r=>setTimeout(r, M.delayBeforeAudio));
+      addBubble(`<audio controls preload="auto"><source src="${M.audioUrl}"></audio><div class="timestamp">${fmtTime()}</div>`);
+      await new Promise(r=>setTimeout(r, M.delayBeforeVideo));
+      addBubble(`<video controls preload="metadata" playsinline><source src="${M.videoUrl}"></video><div class="timestamp">${fmtTime()}</div>`);
+    }
+
+    window.addEventListener('load', run);
+  </script>
+</body>
+</html>
