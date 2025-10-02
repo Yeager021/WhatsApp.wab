@@ -14,7 +14,7 @@
       --muted: #7a7a7a;
     }
 
-    html,body{height:100%;margin:0;font-family:Inter, Arial, Helvetica, sans-serif;background:linear-gradient(180deg,var(--bg) 0%, #f6f7f6 100%);}
+    html,body{height:100%;margin:0;font-family:Inter, Arial, Helvetica, sans-serif;background:linear-gradient(180deg,var(--bg) 0%, #f6f7f6 100%);overflow:hidden;}
     .app{width:100vw;max-width:460px;height:100vh;margin:0 auto;border-radius:12px;box-shadow:0 12px 28px rgba(30,40,40,0.15);overflow:hidden;display:flex;flex-direction:column;background:linear-gradient(180deg,#f3efec 0%, #efe8e3 100%);}
 
     .header{flex-shrink:0;height:56px;padding:8px 12px;background:var(--dark);color:#fff;display:flex;align-items:center;gap:10px;}
@@ -66,37 +66,36 @@
 
     .scroll-down-btn {
       position: absolute;
-      bottom: 16px;
+      bottom: 20px;
       left: 50%;
       transform: translateX(-50%);
-      width: 32px;
-      height: 32px;
+      width: 40px;
+      height: 40px;
       border-radius: 50%;
-      background: transparent;
-      color: #000;
+      background: black;
+      color: white;
       display: none;
       align-items: center;
       justify-content: center;
-      cursor: pointer;
       border: none;
-      animation: blink 1s infinite;
-      transition: opacity 0.2s ease;
       z-index: 10;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
-    .scroll-down-btn.visible { display: flex; }
-    .scroll-down-btn:hover { opacity: 0.8; }
-    .scroll-down-btn:active { transform: translateX(-50%) scale(0.95); }
-    .scroll-down-btn:focus { outline: 2px solid rgba(0,0,0,0.2); outline-offset: 2px; }
 
-    @keyframes blink {
-      0%, 50% { opacity: 1; }
-      51%, 100% { opacity: 0.3; }
+    /* seta pulsando */
+    @keyframes pulse {
+      0%, 100% { transform: translateX(-50%) scale(1); opacity: 1; }
+      50% { transform: translateX(-50%) scale(1.15); opacity: 0.8; }
+    }
+    .scroll-down-btn.visible {
+      display: flex;
+      animation: pulse 1.2s infinite;
     }
 
     @media (max-width:360px){
       .audio-track{ min-width:clamp(100px, 30vw, 140px); }
       .audio-time{ width:clamp(36px, 10vw, 44px); font-size:11px; }
-      .scroll-down-btn { width: 28px; height: 28px; }
+      .scroll-down-btn { width: 36px; height: 36px; }
     }
 
     .audio-play-btn:focus{ outline:3px solid rgba(7,94,84,0.15); outline-offset:3px; }
@@ -112,8 +111,8 @@
       </div>
     </div>
     <div class="messages" id="messages" aria-live="polite">
-      <button class="scroll-down-btn" aria-label="Rolar para novas mensagens" title="Rolar para novas mensagens">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+      <button class="scroll-down-btn" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
           <path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/>
         </svg>
       </button>
@@ -124,10 +123,15 @@
     const M = {
       avatar: 'https://i.pravatar.cc/150?img=47',
       audioUrl: 'https://s3-cf.zapsafe.work/gnn/audio3.mp3',
-      videoUrl: 'https://s3-cf.zapsafe.work/gnn/45.mp4',
-      delayBeforeAudio: 2000, // 0.5s (aparecer) + 1.5s (duração visível)
-      delayBeforeVideo: 1500, // 0.5s (aparecer) + 1s (duração visível)
-      delayBetweenVideos: 1500 // 0.5s (aparecer) + 1s (duração visível para subsequentes)
+      videos: [
+        'https://s3-cf.zapsafe.work/gnn/45.mp4',
+        'https://s3-cf.zapsafe.work/gnn/40.mp4',
+        'https://s3-cf.zapsafe.work/gnn/50.mp4',
+        'https://s3-cf.zapsafe.work/gnn/36.mp4'
+      ],
+      delayBeforeAudio: 5000,
+      delayBeforeVideo: 10000,
+      delayBetweenVideos: 10000
     };
 
     const msgs = document.getElementById('messages');
@@ -150,14 +154,28 @@
       b.className = 'bubble';
       b.innerHTML = html;
       msgs.appendChild(b);
+      updateArrow();
       return b;
     }
 
-    function scrollToBottom() {
-      msgs.scrollTop = msgs.scrollHeight;
+    function updateArrow() {
+      const nearBottom = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 10;
+      if (nearBottom) {
+        scrollDownBtn.classList.remove('visible');
+      } else {
+        scrollDownBtn.classList.add('visible');
+      }
     }
 
-    scrollDownBtn.addEventListener('click', scrollToBottom);
+    function scrollToBottom(force = false) {
+      const nearBottom = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 10;
+      if (force || nearBottom) {
+        msgs.scrollTop = msgs.scrollHeight;
+      }
+    }
+
+    msgs.addEventListener('scroll', updateArrow);
+    scrollDownBtn.addEventListener('click', () => scrollToBottom(true));
 
     async function run(){
       const placeholderAudio = addBubble(`
@@ -193,82 +211,29 @@
       const SVG_PLAY = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>`;
       const SVG_PAUSE = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M6 19h4V5H6zm8-14v14h4V5z"/></svg>`;
 
-      // Play/Pause
-      playBtn.addEventListener('click', ()=>{
-        if (audio.paused) audio.play().catch(()=>{}); else audio.pause();
-      });
+      playBtn.addEventListener('click', ()=>{ if (audio.paused) audio.play().catch(()=>{}); else audio.pause(); });
+      playBtn.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key.startsWith('Space')) e.preventDefault(); });
 
-      // Evita que o espaço role a página
-      playBtn.addEventListener('keydown', (e) => {
-        if (e.code === 'Space') {
-          e.preventDefault();
-        }
-      });
+      audio.addEventListener('play', ()=>{ playBtn.classList.add('playing'); playBtn.innerHTML = SVG_PAUSE; });
+      audio.addEventListener('pause', ()=>{ playBtn.classList.remove('playing'); playBtn.innerHTML = SVG_PLAY; });
+      audio.addEventListener('ended', ()=>{ playBtn.classList.remove('playing'); playBtn.innerHTML = SVG_PLAY; });
 
-      audio.addEventListener('play', ()=>{
-        playBtn.classList.add('playing');
-        playBtn.innerHTML = SVG_PAUSE;
-        playBtn.setAttribute('aria-label','Pausar');
-        playBtn.setAttribute('title','Pausar');
-      });
-      audio.addEventListener('pause', ()=>{
-        playBtn.classList.remove('playing');
-        playBtn.innerHTML = SVG_PLAY;
-        playBtn.setAttribute('aria-label','Tocar');
-        playBtn.setAttribute('title','Tocar');
-      });
-      audio.addEventListener('ended', ()=>{
-        playBtn.classList.remove('playing');
-        playBtn.innerHTML = SVG_PLAY;
-        playBtn.setAttribute('aria-label','Tocar');
-        playBtn.setAttribute('title','Tocar');
-      });
+      audio.addEventListener('timeupdate', ()=>{ if (!audio.duration) return; const pct = (audio.currentTime / audio.duration) * 100; progress.style.width = pct + '%'; timeEl.textContent = fmtTimeSec(audio.currentTime); track.setAttribute('aria-valuenow', Math.floor(pct)); });
+      track.addEventListener('click', ev=>{ if (!audio.duration) return; const rect = track.getBoundingClientRect(); const x = ev.clientX - rect.left; audio.currentTime = (x / rect.width) * audio.duration; });
 
-      audio.addEventListener('timeupdate', ()=>{
-        if (!audio.duration) return;
-        const pct = (audio.currentTime / audio.duration) * 100;
-        progress.style.width = pct + '%';
-        timeEl.textContent = fmtTimeSec(audio.currentTime);
-        track.setAttribute('aria-valuenow', Math.floor(pct));
-      });
-
-      track.addEventListener('click', ev=>{
-        if (!audio.duration) return;
-        const rect = track.getBoundingClientRect();
-        const x = ev.clientX - rect.left;
-        audio.currentTime = (x / rect.width) * audio.duration;
-      });
-
-      const placeholderVideo1 = addBubble(`
-        <div class="loading-bubble" aria-hidden="true">
-          <div class="dot"></div><div class="dot"></div><div class="dot"></div>
-        </div>
-      `);
-
-      await new Promise(r=>setTimeout(r, M.delayBeforeVideo));
-      placeholderVideo1.innerHTML = `<video controls preload="metadata" playsinline><source src="${M.videoUrl}"></video><div class="timestamp">${fmtTime()}</div>`;
-
-      // Adicionar três vídeos adicionais
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < M.videos.length; i++) {
         const placeholderVideo = addBubble(`
           <div class="loading-bubble" aria-hidden="true">
             <div class="dot"></div><div class="dot"></div><div class="dot"></div>
           </div>
         `);
-        await new Promise(r=>setTimeout(r, M.delayBetweenVideos));
-        placeholderVideo.innerHTML = `<video controls preload="metadata" playsinline><source src="${M.videoUrl}"></video><div class="timestamp">${fmtTime()}</div>`;
+        await new Promise(r=>setTimeout(r, i===0 ? M.delayBeforeVideo : M.delayBetweenVideos));
+        placeholderVideo.innerHTML = `<video controls preload="metadata" playsinline><source src="${M.videos[i]}"></video><div class="timestamp">${fmtTime()}</div>`;
       }
     }
 
     window.addEventListener('load', () => {
-      // Lógica da seta: esperar 2s após load, exibir por 5s
-      setTimeout(() => {
-        scrollDownBtn.classList.add('visible');
-        setTimeout(() => {
-          scrollDownBtn.classList.remove('visible');
-        }, 5000);
-      }, 2000);
-
+      updateArrow();
       run();
     });
   </script>
